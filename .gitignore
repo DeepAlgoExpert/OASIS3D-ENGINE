@@ -1,0 +1,10 @@
+*.ckpt
+__pycache__/
+.vscode/
+*.pyc
+checkpoints/
+*.pkl
+*.npz
+*.zip
+*.tar
+

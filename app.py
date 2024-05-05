@@ -68,6 +68,24 @@ ALLOWED_EXTENSIONS = {'jpg', 'png'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def save_base64_image(base64_string, filename):
+    try:
+        # Extract base64 image data
+        _, base64_data = base64_string.split(',', 1)
+        
+        # Decode base64 data
+        image_data = base64.b64decode(base64_data)
+        
+        # Write image data to file
+        with open(filename, 'wb') as f:
+            f.write(image_data)
+        
+        print(f"Image saved as {filename}")
+        return True
+    except Exception as e:
+        print(f"Error saving image: {e}")
+        return False
+
 def delete_files_in_directory(directory_path):
    try:
      files = os.listdir(directory_path)
@@ -98,13 +116,8 @@ def get_obj(filename):
 # Endpoint for measurements
 @app.route('/measure', methods=['POST'])
 def measurement():
-    if 'model' not in request.files:
-        return jsonify({'error': 'Please provide model image.'})
-
-    model = request.files['model']
-    height = request.form['height']
-    if model.filename == '':
-        return jsonify({'error': 'Please provide valid model file'})
+    model = request.json['model']
+    height = request.json['height']
 
     model_image_path = 'Measurement/3d_body/inputs'
     output_smplx_path = 'Measurement/3d_body/results'
@@ -113,11 +126,10 @@ def measurement():
     delete_files_in_directory(output_smplx_path)
     delete_files_in_directory(output_smpl_path)
     
-    if model and allowed_file(model.filename):
-        model_filename = secure_filename(model.filename)
-
-        
-        model.save(os.path.join(app.config['MEASURE_MODEL_UPLOAD_FOLDER'], model_filename))
+    if model:
+        model_filename = "model.jpg"
+        model_path= os.path.join(app.config['MEASURE_MODEL_UPLOAD_FOLDER'], model_filename)
+        save_base64_image(model, model_path)
 
         # Run the child script and capture its output
         try:
@@ -150,7 +162,7 @@ def measurement():
 
         filename, extension = os.path.splitext(model_filename)
         obj = filename + '.obj'
-        obj_url = "https://3.83.96.213/measure/" + obj
+        obj_url = "https://3.89.143.205/measure/" + obj
         return jsonify({'message': '3D body reconstruction achived successfully', 'obj_url': obj_url, 'measurements': json.loads(measurements_json)})
     else:
         return jsonify({'error': 'File type not allowed. Please provide JPG file'})
@@ -161,29 +173,40 @@ def fullbody_vto():
     if 'model' not in request.files or 'garment' not in request.files:
         return jsonify({'error': 'Please provide two files'})
 
-    model = request.files['model']
-    garment = request.files['garment']
-    category = request.args.get('category')
+    model = request.json['model']
+    model_type = request.json['modelType']
+    garment = request.json['garment']
+    garment_type = request.json['garmentType']
 
-    if category == '0':
-        model_type = "hd"
+    if garment_type=="Upper-body":
+        category = '0'
+    elif garment_type=="Lower-body":
+        category = '1'
     else:
-        model_type = "dc"
+        category = '2'
 
-    if model.filename == '' or garment.filename == '':
-        return jsonify({'error': 'Please provide two valid files'})
+    if model and garment:
 
-    if model and allowed_file(model.filename) and garment and allowed_file(garment.filename):
-        model_filename = secure_filename(model.filename)
-        garment_filename = secure_filename(garment.filename)
-        result_filename = 'out_' + model_type + '_0.png'
-        
-        model.save(os.path.join(app.config['MODEL_UPLOAD_FOLDER'], model_filename))
-        garment.save(os.path.join(app.config['GARMENT_UPLOAD_FOLDER'], garment_filename))
+        model_filename = "model.jpg"
+        model_path= os.path.join(app.config['MODEL_UPLOAD_FOLDER'], model_filename)
+        save_base64_image(model, model_path)
+
+        garment_filename = "garment.jpg"
+        garment_path= os.path.join(app.config['GARMENT_UPLOAD_FOLDER'], garment_filename)
+        save_base64_image(garment, garment_path)
+
         activate_cmd = f'eval "$(conda shell.bash hook)" && conda activate server && '
-	#subprocess.run(activate_cmd + 'cd ./OutfitFullBody/run && python run_ootd.py --model_path ../../images/model/' + model_filename + ' --cloth_path ../../images/garment/' + garment_filename + ' --scale 2.0 --sample 1 --category ' + category + ' --model_type ' + model_type, shell=True, check=True)
-        subprocess.run(activate_cmd + 'cd ./OutfitFullBody/run && python run_ootd_origin.py --model_path ../../images/model/' + model_filename + ' --cloth_path ../../images/garment/' + garment_filename + ' --scale 2.0 --sample 1 --category ' + category + ' --model_type ' + model_type, shell=True, check=True)
-  
+
+        if garment_type=="Upper-body":
+            result_filename = 'out_hd_0.png'
+            subprocess.run(activate_cmd + 'cd ./OutfitFullBody/run && python run_ootd_origin.py --model_path ../../images/model/' + model_filename + 
+            ' --cloth_path ../../images/garment/' + garment_filename + ' --scale 2.0 --sample 1', shell=True, check=True)
+        else:
+            result_filename = 'out_dc_0.png'
+            subprocess.run(activate_cmd + 'cd ./OutfitFullBody/run && python run_ootd_origin.py --model_path ../../images/model/' + model_filename + 
+            ' --cloth_path ../../images/garment/' + garment_filename + ' --scale 2.0 --sample 1 --category ' + category + 
+            ' --model_type dc', shell=True, check=True) 
+
         result_path = f"output/" + result_filename
 
 	#result_url = "http://3.87.162.97/try-on/" + result_filename

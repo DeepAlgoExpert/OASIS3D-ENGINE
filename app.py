@@ -162,7 +162,7 @@ def measurement():
 
         filename, extension = os.path.splitext(model_filename)
         obj = filename + '.obj'
-        obj_url = "https://3.89.143.205/measure/" + obj
+        obj_url = "https://54.175.70.202/measure/" + obj
         return jsonify({'message': '3D body reconstruction achived successfully', 'obj_url': obj_url, 'measurements': json.loads(measurements_json)})
     else:
         return jsonify({'error': 'File type not allowed. Please provide JPG file'})
@@ -170,13 +170,15 @@ def measurement():
 # Endpoint for virtual try on
 @app.route('/try-on', methods=['POST'])
 def fullbody_vto():
-    if 'model' not in request.files or 'garment' not in request.files:
-        return jsonify({'error': 'Please provide two files'})
-
+    #if 'model' not in request.files or 'garment' not in request.files:
+        #return jsonify({'error': 'Please provide two files'})
+    print('starting...')
     model = request.json['model']
     model_type = request.json['modelType']
     garment = request.json['garment']
     garment_type = request.json['garmentType']
+
+    print('garment_type:', garment_type)
 
     if garment_type=="Upper-body":
         category = '0'
@@ -215,7 +217,8 @@ def fullbody_vto():
             image_bytes = file.read()
             # Convert image to base64
             base64_image = base64.b64encode(image_bytes).decode('utf-8')
-
+        return base64_image
+            
         return jsonify({'message': 'virtual dressing achived successfully', 'result_url': "result_url", 'result': base64_image})
     else:
         return jsonify({'error': 'File type not allowed. Please provide two JPG files'})
